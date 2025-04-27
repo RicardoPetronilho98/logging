@@ -28,8 +28,8 @@ public class LogEntry {
     @Nullable
     private Map<String, List<String>> headers;
     @Nullable
-    @JsonRawValue
-    private String payload; // payload will be injected as true JSON inside the log
+    @JsonRawValue // payload will be injected as true JSON inside the log
+    private String payload;
     @Nullable
     private Integer status;
     private Map<String, String> attributes; // allow dynamic attributes

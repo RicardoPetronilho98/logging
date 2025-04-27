@@ -28,7 +28,7 @@ Also, **mask** and **hide sensitive fields** in logs dynamically, based on confi
 
 ## 📦 Installation
 
-Add the library to your Maven project:
+### 1. Add the library to your Maven project:
 
 ```xml
 <dependency>
@@ -38,9 +38,26 @@ Add the library to your Maven project:
 </dependency>
 ```
 
----
+> ⚡ **Note:** This library is **not** published in Maven Central. To use it, install it locally first with `mvn clean install`.
 
-## ⚙️ Configuration (example `application.yaml`)
+### 2. Enable the library:
+
+Make Spring Boot scan the library packages.
+
+```java
+@SpringBootApplication(scanBasePackages = "com.playground.logging")
+public class App {
+
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+
+}
+```
+
+### 3. Set up the configuration:
+
+⚙️ Configuration (example `application.yaml`)
 
 ```yaml
 logging:
@@ -59,11 +76,14 @@ logging:
       - "$.payload.access_token"
 ```
 
-| Key                   | Description                                                           |
-|:----------------------|:----------------------------------------------------------------------|
-| `logging.mask.tag`    | The string that will replace sensitive field values.                  |
-| `logging.mask.fields` | List of JSONPath expressions pointing to fields to mask.              |
-| `logging.hide.fields` | List of JSONPath expressions pointing to fields to completely remove. |
+| Key                         | Description                                                           |
+|:----------------------------|:----------------------------------------------------------------------|
+| `logging.payload.maxLength` | Max length of the payload written on logs before being truncated.     |
+| `logging.mask.tag`          | The string that will replace sensitive field values.                  |
+| `logging.mask.fields`       | List of JSONPath expressions pointing to fields to mask.              |
+| `logging.hide.fields`       | List of JSONPath expressions pointing to fields to completely remove. |
+
+> 🛡 **Tip:** If `logging.payload.maxLength` is not configured, the payload will be logged in full (unlimited). Configure it to avoid giant payloads in production logs.
 
 ---
 
