@@ -1,5 +1,6 @@
 package com.playground.logging.domain;
 
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
@@ -27,7 +28,8 @@ public class LogEntry {
     @Nullable
     private Map<String, List<String>> headers;
     @Nullable
-    private String payload;
+    @JsonRawValue
+    private String payload; // payload will be injected as true JSON inside the log
     @Nullable
     private Integer status;
     private Map<String, String> attributes; // allow dynamic attributes

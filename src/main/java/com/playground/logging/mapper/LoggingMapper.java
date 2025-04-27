@@ -36,7 +36,7 @@ public interface LoggingMapper {
     @Mapping(target = "timers", source = "startTime")
     @Mapping(target = "requestInData", source = "req")
     @Mapping(target = "attributes", expression = "java(new HashMap<>())")
-    LogContext toLogContext(ContentCachingRequestWrapper req, Long startTime, @Context LoggingProperties loggingProperties);
+    LogContext toLogContext(ContentCachingRequestWrapper req, Long startTime, @Context LoggingProperties properties);
 
     @Mapping(target = "transactionId", expression = "java(LoggingHttpHeaders.getTransactionId(req))")
     @Mapping(target = "traceId", expression = "java(LoggingHttpHeaders.getTraceId(req))")
@@ -51,7 +51,7 @@ public interface LoggingMapper {
     @Mapping(target = "uri", expression = "java(req.getRequestURI())")
     @Mapping(target = "headers", source = "req", qualifiedByName = "getRequestHttpHeaders")
     @Mapping(target = "payload", source = "req", qualifiedByName = "getRequestPayload")
-    LogContext.RequestInData toRequestInData(ContentCachingRequestWrapper req, @Context LoggingProperties loggingProperties);
+    LogContext.RequestInData toRequestInData(ContentCachingRequestWrapper req, @Context LoggingProperties properties);
 
     // --- LogEntry REQUEST_IN
 
@@ -85,7 +85,7 @@ public interface LoggingMapper {
     @Mapping(target = "payload", source = "res", qualifiedByName = "getResponsePayload")
     @Mapping(target = "status", source = "res.status")
     @Mapping(target = "attributes", source = "context.attributes")
-    LogEntry toResponseOut(LogContext context, ContentCachingResponseWrapper res, @Context LoggingProperties loggingProperties);
+    LogEntry toResponseOut(LogContext context, ContentCachingResponseWrapper res, @Context LoggingProperties properties);
 
     // ---
 
@@ -102,11 +102,11 @@ public interface LoggingMapper {
     }
 
     @Named("getRequestPayload")
-    default String getRequestPayload(ContentCachingRequestWrapper req, @Context LoggingProperties loggingProperties) {
+    default String getRequestPayload(ContentCachingRequestWrapper req, @Context LoggingProperties properties) {
         String payload = MediaType.APPLICATION_JSON_VALUE.equals(req.getContentType())
                 ? new String(req.getContentAsByteArray(), StandardCharsets.UTF_8)
                 : null;
-        return truncatePayload(payload, loggingProperties);
+        return truncatePayload(payload, properties);
     }
 
     @Named("getResponseHttpHeaders")
@@ -122,20 +122,23 @@ public interface LoggingMapper {
     }
 
     @Named("getResponsePayload")
-    default String getResponsePayload(ContentCachingResponseWrapper res, @Context LoggingProperties loggingProperties) {
+    default String getResponsePayload(ContentCachingResponseWrapper res, @Context LoggingProperties properties) {
         String payload = MediaType.APPLICATION_JSON_VALUE.equals(res.getContentType())
                 ? new String(res.getContentAsByteArray(), StandardCharsets.UTF_8)
                 : null;
-        return truncatePayload(payload, loggingProperties);
+        return truncatePayload(payload, properties);
     }
 
     @Named("truncatePayload")
-    default String truncatePayload(String payload, @Context LoggingProperties loggingProperties) {
+    default String truncatePayload(String payload, @Context LoggingProperties properties) {
         if (payload == null) {
             return null;
         }
-        return payload.length() > loggingProperties.getPayload().getMaxLength()
-                ? payload.substring(0, loggingProperties.getPayload().getMaxLength()) + "...[TRUNCATED]"
+        if (properties == null || properties.getPayload() == null || properties.getPayload().getMaxLength() == null) {
+            return payload;
+        }
+        return payload.length() > properties.getPayload().getMaxLength()
+                ? payload.substring(0, properties.getPayload().getMaxLength()) + "...[TRUNCATED]"
                 : payload;
     }
 

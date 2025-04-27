@@ -1,0 +1,14 @@
+logging:
+  payload.maxLength: 5000 # 5 KB
+  hide:
+    fields:
+      - "$.headers.transaction-id"
+      - "$.headers.trace-id"
+      - "$.headers.postman-token"
+      - "$.attributes"
+      - "$.payload.keys.[*].n"
+  mask:
+    tag: "<MASKED>"
+    fields:
+      - "$.headers.authorization"
+      - "$.payload.access_token"
