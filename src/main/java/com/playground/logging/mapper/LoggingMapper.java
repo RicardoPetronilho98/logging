@@ -10,7 +10,8 @@ import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.springframework.http.MediaType;
-import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.util.StringUtils;
+import com.playground.logging.interceptor.CachedBodyRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.nio.charset.StandardCharsets;
@@ -36,11 +37,11 @@ public interface LoggingMapper {
     @Mapping(target = "timers", source = "startTime")
     @Mapping(target = "requestInData", source = "req")
     @Mapping(target = "attributes", expression = "java(new HashMap<>())")
-    LogContext toLogContext(ContentCachingRequestWrapper req, Long startTime, @Context LoggingProperties properties);
+    LogContext toLogContext(CachedBodyRequestWrapper req, Long startTime, @Context LoggingProperties properties);
 
     @Mapping(target = "transactionId", expression = "java(LoggingHttpHeaders.getTransactionId(req))")
     @Mapping(target = "traceId", expression = "java(LoggingHttpHeaders.getTraceId(req))")
-    LogContext.Identifiers toIdentifiers(ContentCachingRequestWrapper req);
+    LogContext.Identifiers toIdentifiers(CachedBodyRequestWrapper req);
 
     @Mapping(target = "internalExecutionStartTime", expression = "java(startTime)")
     @Mapping(target = "externalElapsedTimeNanos", expression = "java(0L)")
@@ -51,7 +52,7 @@ public interface LoggingMapper {
     @Mapping(target = "uri", expression = "java(req.getRequestURI())")
     @Mapping(target = "headers", source = "req", qualifiedByName = "getRequestHttpHeaders")
     @Mapping(target = "payload", source = "req", qualifiedByName = "getRequestPayload")
-    LogContext.RequestInData toRequestInData(ContentCachingRequestWrapper req, @Context LoggingProperties properties);
+    LogContext.RequestInData toRequestInData(CachedBodyRequestWrapper req, @Context LoggingProperties properties);
 
     // --- LogEntry REQUEST_IN
 
@@ -90,7 +91,7 @@ public interface LoggingMapper {
     // ---
 
     @Named("getRequestHttpHeaders")
-    default Map<String, List<String>> getResponseHttpHeaders(ContentCachingRequestWrapper req) {
+    default Map<String, List<String>> getRequestHttpHeaders(CachedBodyRequestWrapper req) {
         return Collections.list(req.getHeaderNames())
                 .stream()
                 .collect(
@@ -102,7 +103,7 @@ public interface LoggingMapper {
     }
 
     @Named("getRequestPayload")
-    default String getRequestPayload(ContentCachingRequestWrapper req, @Context LoggingProperties properties) {
+    default String getRequestPayload(CachedBodyRequestWrapper req, @Context LoggingProperties properties) {
         String payload = MediaType.APPLICATION_JSON_VALUE.equals(req.getContentType())
                 ? new String(req.getContentAsByteArray(), StandardCharsets.UTF_8)
                 : null;
@@ -131,7 +132,7 @@ public interface LoggingMapper {
 
     @Named("truncatePayload")
     default String truncatePayload(String payload, @Context LoggingProperties properties) {
-        if (payload == null) {
+        if (!StringUtils.hasText(payload)) {
             return null;
         }
         if (properties == null || properties.getPayload() == null || properties.getPayload().getMaxLength() == null) {

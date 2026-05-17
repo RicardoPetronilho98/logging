@@ -1,8 +1,8 @@
 package com.playground.logging.interceptor;
 
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.playground.logging.config.LoggingProperties;
 import com.playground.logging.domain.LogContext;
 import com.playground.logging.domain.LogContextHolder;
@@ -20,7 +20,6 @@ import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
@@ -40,7 +39,7 @@ public class RequestInAndResponseOutEnabler extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws ServletException, IOException {
         try  {
             long startTime = System.nanoTime();
-            ContentCachingRequestWrapper wrappedReq = new ContentCachingRequestWrapper(req);
+            CachedBodyRequestWrapper wrappedReq = new CachedBodyRequestWrapper(req);
             ContentCachingResponseWrapper wrappedRes = new ContentCachingResponseWrapper(res);
 
             LogContext context = createLogContext(wrappedReq, startTime);
@@ -56,7 +55,7 @@ public class RequestInAndResponseOutEnabler extends OncePerRequestFilter {
         }
     }
 
-    private LogContext createLogContext(ContentCachingRequestWrapper req, long startTime) {
+    private LogContext createLogContext(CachedBodyRequestWrapper req, long startTime) {
         LogContext context = mapper.toLogContext(req, startTime, properties);
         LogContextHolder.set(context);
 
@@ -66,14 +65,14 @@ public class RequestInAndResponseOutEnabler extends OncePerRequestFilter {
         return context;
     }
 
-    private void logRequestIn(LogContext context) throws JsonProcessingException {
+    private void logRequestIn(LogContext context) throws JacksonException {
         LogEntry requestIn = mapper.toRequestIn(context);
         String requestInJson = jsonMapper.writeValueAsString(requestIn);
         String redactedRequestInJson = redactService.redact(requestInJson);
         log.info("{}", redactedRequestInJson);
     }
 
-    private void logResponseOut(LogContext context, ContentCachingResponseWrapper res) throws JsonProcessingException {
+    private void logResponseOut(LogContext context, ContentCachingResponseWrapper res) throws JacksonException {
         LogEntry responseOut = mapper.toResponseOut(context, res, properties);
         String responseOutJson = jsonMapper.writeValueAsString(responseOut);
         String redactedResponseOutJson = redactService.redact(responseOutJson);

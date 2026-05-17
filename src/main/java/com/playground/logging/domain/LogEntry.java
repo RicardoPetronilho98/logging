@@ -1,6 +1,8 @@
 package com.playground.logging.domain;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonRawValue;
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +48,19 @@ public class LogEntry {
         RESPONSE_OUT("response-out");
 
         private final String value;
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static LogPoint fromValue(String value) {
+            return Arrays.stream(LogPoint.values())
+                    .filter(lp -> lp.value.equalsIgnoreCase(value))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid LogPoint value: " + value));
+        }
     }
 
 }
