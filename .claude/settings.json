@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(cat | jq -r \".tool_input.file_path // empty\" 2>/dev/null); echo \"$FILE\" | grep -qE \"src/main/.*\\.(java|yaml|yml)$\" && echo \"DOCUMENTATION SYNC REQUIRED: You just modified $FILE. Open root CLAUDE.md and check the ## Documentation Maintenance table — find the row whose trigger matches what you changed, then update every CLAUDE.md and README.md section listed in that row before closing this task.\" || true'"
+          }
+        ]
+      }
+    ]
+  }
+}
