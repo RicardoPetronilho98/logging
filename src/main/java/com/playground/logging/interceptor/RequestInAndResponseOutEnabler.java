@@ -61,6 +61,10 @@ public class RequestInAndResponseOutEnabler extends OncePerRequestFilter {
 
         MDC.put("transaction-id", context.getIdentifiers().getTransactionId());
         MDC.put("trace-id", context.getIdentifiers().getTraceId());
+        String spanId = context.getIdentifiers().getSpanId();
+        if (spanId != null) {
+            MDC.put("span-id", spanId);
+        }
 
         return context;
     }

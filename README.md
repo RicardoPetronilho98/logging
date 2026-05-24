@@ -12,11 +12,14 @@ Also, **mask** and **hide sensitive fields** in logs dynamically, based on confi
 ## ✨ Features
 
 - 🔍 **Enhanced Traceability**:
-  - Automatic injection of `transactionId`, `traceId`, and `log point` into every log event.
+  - Automatic injection of `transactionId`, `traceId`, `spanId`, and `log point` into every log event.
+  - W3C `traceparent` header support: `traceId` and `spanId` align with OpenTelemetry trace/span IDs for seamless log-to-trace correlation in Jaeger, Tempo, and Grafana.
+  - Falls back gracefully when `traceparent` is absent (custom headers or generated UUIDs).
   - Capture execution timestamps and durations with nanosecond precision.
 - 📈 **Observability-Ready**:
     - Structured logs for seamless integration into ELK, Grafana Loki, AWS CloudWatch, and OpenTelemetry.
     - Designed for correlation of distributed logs across microservices.
+    - `spanId` and `traceId` are addressable via JSONPath (e.g., `$.spanId`, `$.traceId`) for masking or hiding.
 - 🔒 **Mask sensitive fields** (e.g., email, tokens, phone numbers) dynamically.
 - 🛡 **Hide fields completely** from logs when needed.
 - 📜 **Dynamic configuration** via `application.yaml` (no code changes required).
@@ -85,6 +88,8 @@ logging:
 
 > 🛡 **Tip:** If `logging.payload.maxLength` is not configured, the payload will be logged in full (unlimited). Configure it to avoid giant payloads in production logs.
 
+> ℹ️ **Always hidden:** `$.headers.transaction-id` and `$.headers.trace-id` are unconditionally removed from every log entry. These IDs are already present as top-level fields (`transactionId`, `traceId`), so keeping them in `headers` would be duplicate information. This behaviour is built-in and cannot be overridden via configuration.
+
 ---
 
 ## 📋 Example
@@ -94,9 +99,10 @@ logging:
 ```json
 {
   "executedAt": "2025-04-27T15:33:00.1287702",
-  "logPoint": "REQUEST_IN",
+  "logPoint": "request-in",
   "transactionId": "d8f15d05-2219-48e3-af4f-ee0a06b4bb7d",
-  "traceId": "f0653cd1-8659-4c85-8a22-b2ce0333863e",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "spanId": "00f067aa0ba902b7",
   "method": "POST",
   "uri": "/oauth2/token",
   "headers": {
@@ -106,14 +112,17 @@ logging:
 }
 ```
 
+> The W3C `traceparent` header (`<version>-<traceId>-<parentId>-<traceFlags>`) is parsed in full. `traceId` maps from the trace identifier and `spanId` maps from the parent span identifier. Without `traceparent`, `traceId` falls back to a UUID and `spanId` is omitted.
+
 ### Example: `RESPONSE_OUT`
 
 ```json
 {
   "executedAt": "2025-04-27T15:33:00.3739197",
-  "logPoint": "RESPONSE_OUT",
+  "logPoint": "response-out",
   "transactionId": "d8f15d05-2219-48e3-af4f-ee0a06b4bb7d",
-  "traceId": "f0653cd1-8659-4c85-8a22-b2ce0333863e",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "spanId": "00f067aa0ba902b7",
   "method": "POST",
   "uri": "/oauth2/token",
   "headers": {},
@@ -137,7 +146,6 @@ logging:
 
 - 🧠 **Policy-based masking** (MASK / HIDE / HASH fields dynamically).
 - 🔥 **Regex-based masking** (match field names dynamically).
-- 🛰 **Integration with OpenTelemetry tracing**.
 - ✍️ **Audit trail** of masked fields for security logging.
 
 ---
