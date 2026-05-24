@@ -4,6 +4,8 @@ import jakarta.annotation.Nullable;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.util.StringUtils;
 
+import java.util.regex.Pattern;
+
 /**
  * Parsed representation of the W3C traceparent header.
  *
@@ -36,6 +38,13 @@ public record TraceContext(
     private static final int PARENT_ID_INDEX   = 2;
     private static final int TRACE_FLAGS_INDEX = 3;
 
+    private static final int VERSION_LENGTH     = 2;
+    private static final int TRACE_ID_LENGTH    = 32;
+    private static final int PARENT_ID_LENGTH   = 16;
+    private static final int TRACE_FLAGS_LENGTH = 2;
+    private static final String INVALID_VERSION = "ff";
+    private static final Pattern HEX_PATTERN    = Pattern.compile("^[0-9a-f]+$");
+
     @Nullable
     public static TraceContext from(HttpServletRequest req) {
         String header = req.getHeader(LoggingHttpHeaders.TRACEPARENT.getValue());
@@ -44,10 +53,13 @@ public record TraceContext(
         }
         String[] parts = header.split("-");
         if (parts.length != EXPECTED_SEGMENT_COUNT
-                || !StringUtils.hasText(parts[VERSION_INDEX])
-                || !StringUtils.hasText(parts[TRACE_ID_INDEX])
-                || !StringUtils.hasText(parts[PARENT_ID_INDEX])
-                || !StringUtils.hasText(parts[TRACE_FLAGS_INDEX])) {
+                || parts[VERSION_INDEX].length()     != VERSION_LENGTH
+                || parts[TRACE_ID_INDEX].length()    != TRACE_ID_LENGTH
+                || parts[PARENT_ID_INDEX].length()   != PARENT_ID_LENGTH
+                || parts[TRACE_FLAGS_INDEX].length() != TRACE_FLAGS_LENGTH
+                || INVALID_VERSION.equals(parts[VERSION_INDEX])
+                || !HEX_PATTERN.matcher(parts[TRACE_ID_INDEX]).matches()
+                || !HEX_PATTERN.matcher(parts[PARENT_ID_INDEX]).matches()) {
             return null;
         }
         return new TraceContext(

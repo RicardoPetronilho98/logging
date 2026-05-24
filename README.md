@@ -88,6 +88,8 @@ logging:
 
 > 🛡 **Tip:** If `logging.payload.maxLength` is not configured, the payload will be logged in full (unlimited). Configure it to avoid giant payloads in production logs.
 
+> ℹ️ **Always hidden:** `$.headers.transaction-id` and `$.headers.trace-id` are unconditionally removed from every log entry. These IDs are already present as top-level fields (`transactionId`, `traceId`), so keeping them in `headers` would be duplicate information. This behaviour is built-in and cannot be overridden via configuration.
+
 ---
 
 ## 📋 Example

@@ -11,6 +11,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +19,14 @@ import java.util.ArrayList;
 public class LogRedactService {
 
     private static final Configuration config = Configuration.defaultConfiguration();
+
+    // Always hidden: these IDs are already top-level fields in LogEntry (transactionId, traceId),
+    // so keeping them in headers too would be redundant duplication.
+    private static final List<String> ALWAYS_HIDDEN_PATHS = List.of(
+            "$.headers.transaction-id",
+            "$.headers.trace-id"
+    );
+
     private final LoggingProperties properties;
 
     public String redact(String json) {
@@ -60,9 +69,7 @@ public class LogRedactService {
     }
 
     private void hide(DocumentContext context) {
-        final var toHideList = new ArrayList<String>();
-        toHideList.add("$.headers.transaction-id");
-        toHideList.add("$.headers.trace-id");
+        final var toHideList = new ArrayList<>(ALWAYS_HIDDEN_PATHS);
         if (properties.getHide() != null && !CollectionUtils.isEmpty(properties.getHide().getFields())) {
            toHideList.addAll(properties.getHide().getFields());
         }

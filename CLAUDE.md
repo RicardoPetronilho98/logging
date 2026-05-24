@@ -202,6 +202,18 @@ logging:
 
 JSONPath expressions are evaluated against the full serialised `LogEntry` JSON, so top-level keys (e.g., `$.transactionId`, `$.uri`) are also addressable.
 
+### 6. MDC keys
+
+The following MDC keys are populated on every request and can be referenced in Logback/Log4j2 patterns (e.g., `%X{transaction-id}`):
+
+| MDC key | Always present | Value                                                                        |
+|---|---|------------------------------------------------------------------------------|
+| `transaction-id` | Yes | Custom end-to-end business ID (UUID or from header)                          |
+| `trace-id` | Yes | OTel trace-id from `traceparent`, or UUID or from header fallback            |
+| `span-id` | No | OTel parent-span-id from `traceparent`; absent when `traceparent` is missing |
+
+`%X{span-id}` in appender patterns will produce an empty string when no `traceparent` header was received — treat it as optional.
+
 ---
 
 ## Patterns
@@ -238,6 +250,8 @@ JSONPath expressions are evaluated against the full serialised `LogEntry` JSON, 
 
 - **`spanId` is null when `traceparent` is absent.** If the inbound request carries no `traceparent` header (non-OTel callers, direct Postman calls, etc.), `spanId` is `null` and is omitted from the log JSON (the `ObjectMapper` is configured with `NON_NULL`). Log appender patterns referencing `%X{span-id}` will produce an empty string in that case and must be treated as optional.
 
+- **`$.headers.transaction-id` and `$.headers.trace-id` are always hidden from log output.** These two JSONPath expressions are hardcoded in `LogRedactService.ALWAYS_HIDDEN_PATHS` and removed from every log entry regardless of `application.yaml` configuration. This is intentional: `transactionId` and `traceId` are already promoted to top-level fields in `LogEntry`, so keeping them in the `headers` map too would duplicate information. Consumers who genuinely need to log those header values verbatim cannot opt out of this behaviour without modifying the library.
+
 ---
 
 ## Documentation Maintenance
@@ -258,6 +272,8 @@ JSONPath expressions are evaluated against the full serialised `LogEntry` JSON, 
 | The `ObjectMapper` bean configuration changes | `## Gotchas` |
 | `LogContextHolder` access semantics change (e.g. null-safety added) | `## Key Classes`, `## Gotchas` |
 | Timer fields (`externalElapsedTimeNanos`) are implemented | `## How It Works`, `## Key Classes`, `## Gotchas` |
+| `TraceContext` parsing or W3C spec validation changes | `## Key Classes`, `## How It Works`, `## Gotchas` |
+| New fields added to `LogEntry` or `LogContext.Identifiers` | `## Key Classes`, `## How It Works`, `README.md` examples |
 
 Never close a task leaving CLAUDE.md inconsistent with the code.
 
