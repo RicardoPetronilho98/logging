@@ -41,6 +41,7 @@ public interface LoggingMapper {
 
     @Mapping(target = "transactionId", expression = "java(LoggingHttpHeaders.getTransactionId(req))")
     @Mapping(target = "traceId", expression = "java(LoggingHttpHeaders.getTraceId(req))")
+    @Mapping(target = "spanId", expression = "java(LoggingHttpHeaders.getSpanId(req))")
     LogContext.Identifiers toIdentifiers(CachedBodyRequestWrapper req);
 
     @Mapping(target = "internalExecutionStartTime", expression = "java(startTime)")
@@ -60,6 +61,7 @@ public interface LoggingMapper {
     @Mapping(target = "logPoint", expression = "java(LogPoint.REQUEST_IN)")
     @Mapping(target = "transactionId", source = "context.identifiers.transactionId")
     @Mapping(target = "traceId", source = "context.identifiers.traceId")
+    @Mapping(target = "spanId", source = "context.identifiers.spanId")
     @Mapping(target = "internalExecutionElapsedTimeNanos", source = "context.timers.internalElapsedTimeNanos")
     @Mapping(target = "externalExecutionElapsedTimeNanos", source = "context.timers.externalElapsedTimeNanos")
     @Mapping(target = "totalExecutionElapsedTimeNanos", source = "context.timers.totalElapsedTimeNanos")
@@ -77,6 +79,7 @@ public interface LoggingMapper {
     @Mapping(target = "logPoint", expression = "java(LogPoint.RESPONSE_OUT)")
     @Mapping(target = "transactionId", source = "context.identifiers.transactionId")
     @Mapping(target = "traceId", source = "context.identifiers.traceId")
+    @Mapping(target = "spanId", source = "context.identifiers.spanId")
     @Mapping(target = "internalExecutionElapsedTimeNanos", source = "context.timers.internalElapsedTimeNanos")
     @Mapping(target = "externalExecutionElapsedTimeNanos", source = "context.timers.externalElapsedTimeNanos")
     @Mapping(target = "totalExecutionElapsedTimeNanos", source = "context.timers.totalElapsedTimeNanos")

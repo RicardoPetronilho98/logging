@@ -20,8 +20,10 @@ public class LogContext {
     @Data
     @Builder
     public static class Identifiers {
-        private String transactionId; // entire end-to-end ID
-        private String traceId; // a per-call ID to distinguish individual parallel or downstream executions
+        private String transactionId; // entire end-to-end business ID
+        private String traceId; // OTel trace-id from traceparent, or fallback UUID
+        @Nullable
+        private String spanId; // OTel parent-span-id from traceparent; null when traceparent is absent
     }
 
     @Data

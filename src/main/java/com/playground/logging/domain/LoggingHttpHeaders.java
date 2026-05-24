@@ -14,7 +14,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public enum LoggingHttpHeaders {
     TRANSACTION_ID("transaction-id"),
-    TRACE_ID("trace-id");
+    TRACE_ID("trace-id"),
+    TRACEPARENT("traceparent");
 
     private final String value;
 
@@ -23,7 +24,18 @@ public enum LoggingHttpHeaders {
     }
 
     public static String getTraceId(HttpServletRequest req) {
-        return getHeader(req, TRACE_ID);
+        TraceContext ctx = TraceContext.from(req);
+        return ctx != null
+                ? ctx.traceId()
+                : getHeader(req, TRACE_ID);
+    }
+
+    // Returns the parent-span-id from traceparent, or null if traceparent is absent/malformed.
+    public static String getSpanId(HttpServletRequest req) {
+        TraceContext ctx = TraceContext.from(req);
+        return ctx != null
+                ? ctx.parentId()
+                : null;
     }
 
     private static String getHeader(HttpServletRequest req, LoggingHttpHeaders header) {

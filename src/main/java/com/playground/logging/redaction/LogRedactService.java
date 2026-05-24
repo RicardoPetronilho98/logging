@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -58,13 +60,17 @@ public class LogRedactService {
     }
 
     private void hide(DocumentContext context) {
+        final var toHideList = new ArrayList<String>();
+        toHideList.add("$.headers.transaction-id");
+        toHideList.add("$.headers.trace-id");
         if (properties.getHide() != null && !CollectionUtils.isEmpty(properties.getHide().getFields())) {
-            for (String path : properties.getHide().getFields()) {
-                try {
-                    context.delete(path);
-                } catch (Exception e) {
-                    log.trace("Could not find log path {}. Skipping field hiding. Reason: {}", path, e.getMessage());
-                }
+           toHideList.addAll(properties.getHide().getFields());
+        }
+        for (String path : toHideList) {
+            try {
+                context.delete(path);
+            } catch (Exception e) {
+                log.trace("Could not find log path {}. Skipping field hiding. Reason: {}", path, e.getMessage());
             }
         }
     }

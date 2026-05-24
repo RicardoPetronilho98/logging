@@ -1,6 +1,7 @@
 package com.playground.logging.domain;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.annotation.Nullable;
@@ -17,12 +18,15 @@ import java.util.Map;
 
 @Data
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class LogEntry {
 
     private LocalDateTime executedAt;
     private LogPoint logPoint;
-    private String transactionId; // entire end-to-end ID
-    private String traceId; // a per-call ID to distinguish individual parallel or downstream executions
+    private String transactionId; // entire end-to-end business ID
+    private String traceId; // OTel trace-id from traceparent, or fallback UUID
+    @Nullable
+    private String spanId; // OTel parent-span-id from traceparent; null when traceparent is absent
     private long internalExecutionElapsedTimeNanos;
     private long externalExecutionElapsedTimeNanos;
     private long totalExecutionElapsedTimeNanos;

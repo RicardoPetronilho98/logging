@@ -89,7 +89,7 @@ Outbound HTTP response (headers include transaction-id, trace-id)
 | Package | Contents |
 |---|---|
 | `com.playground.logging.config` | `LoggingProperties` — `@ConfigurationProperties(prefix = "logging")` binding; `JsonMapperConfig` — defines the library's `ObjectMapper` bean |
-| `com.playground.logging.domain` | `LogContext` — per-request mutable state (IDs, timers, request data, attributes); `LogContextHolder` — ThreadLocal accessor; `LogEntry` — immutable log payload sent to SLF4J; `LoggingHttpHeaders` — enum of header names with extraction helpers |
+| `com.playground.logging.domain` | `LogContext` — per-request mutable state (IDs, timers, request data, attributes); `LogContextHolder` — ThreadLocal accessor; `LogEntry` — immutable log payload sent to SLF4J; `LoggingHttpHeaders` — enum of header names with extraction helpers; `TraceContext` — immutable record representing all four fields of a parsed W3C `traceparent` header |
 | `com.playground.logging.interceptor` | `RequestInAndResponseOutEnabler` — the `OncePerRequestFilter` that drives the entire log emission cycle; `CachedBodyRequestWrapper` — eagerly buffers the request body for re-readable access |
 | `com.playground.logging.mapper` | `LoggingMapper` — MapStruct interface; maps from servlet wrappers → `LogContext` and `LogContext` → `LogEntry` for both log points |
 | `com.playground.logging.redaction` | `LogRedactService` — applies mask and hide rules to the serialised JSON string via Jayway JsonPath |
@@ -104,7 +104,8 @@ Outbound HTTP response (headers include transaction-id, trace-id)
 - **`LogContextHolder`** — a bare `ThreadLocal` wrapper with no null guard on `get()`. Callers outside the filter (e.g., service beans) must handle a `null` return if accessed outside a request thread.
 - **`LogRedactService`** — receives the already-serialised JSON string and mutates it with `DocumentContext.set()` (mask) or `DocumentContext.delete()` (hide). Missing JSONPath paths are silently swallowed at `TRACE` level, not thrown.
 - **`LoggingProperties`** — registered as a `@Configuration` bean (not just `@ConfigurationProperties`), so it participates in component scan and its absence from the scan path silently produces zero-value fields rather than a startup error.
-- **`LoggingHttpHeaders`** — enum whose static helpers `getTransactionId` / `getTraceId` generate a fresh random UUID when the corresponding header is absent or blank, ensuring IDs are always non-null.
+- **`TraceContext`** — immutable record with four fields mirroring the W3C `traceparent` spec: `version` (2-hex, always `"00"`), `traceId` (32-hex, distributed trace identifier), `parentId` (16-hex, the calling service's active span-id), and `traceFlags` (2-hex, sampling flags; LSB `1` = sampled). The static factory `TraceContext.from(HttpServletRequest)` reads the `traceparent` header via `LoggingHttpHeaders.TRACEPARENT`, validates the four-segment format, and returns `null` if the header is absent or malformed. `version` and `traceFlags` are captured in the record but not currently propagated to `LogContext` or `LogEntry` — they are available for future use (e.g., sampling-aware log filtering).
+- **`LoggingHttpHeaders`** — enum of HTTP header name constants with three static extraction helpers. `getTransactionId` reads the custom `transaction-id` header, falling back to a UUID. `getTraceId` calls `TraceContext.from(req)` and returns `traceId` if present, then falls back to the custom `trace-id` header, then to a UUID. `getSpanId` calls `TraceContext.from(req)` and returns `parentId` if present, or `null` — no UUID fallback, since a generated UUID would be semantically misleading as a span-id. Parsing logic lives entirely in `TraceContext`; `LoggingHttpHeaders` only handles fallback and UUID generation.
 - **`LogEntry.LogPoint`** — defines four log points (`REQUEST_IN`, `REQUEST_OUT`, `RESPONSE_IN`, `RESPONSE_OUT`) but the library only emits `REQUEST_IN` and `RESPONSE_OUT`. The other two are placeholders.
 
 ---
@@ -115,7 +116,11 @@ Outbound HTTP response (headers include transaction-id, trace-id)
 
 2. **Request body buffering** — `CachedBodyRequestWrapper` drains the original request's `InputStream` into a `byte[]` in its constructor. `getContentAsByteArray()` returns that array immediately, so `LoggingMapper.toRequestInData()` captures the full body before `chain.doFilter()` is called. `getInputStream()` returns a fresh `ByteArrayInputStream` backed by the same array on every call, so downstream handlers can still read the body normally via `@RequestBody` or manual stream access.
 
-3. **ID generation** — `LoggingHttpHeaders.getTransactionId(req)` reads the `transaction-id` header; if absent or blank, it generates a random UUID. Same logic applies to `trace-id`. Both IDs are stored in `LogContext.Identifiers`, written to MDC keys `transaction-id` / `trace-id`, and echoed back as HTTP response headers after the chain completes.
+3. **ID generation** — The `traceparent` header is parsed once by `TraceContext.from(req)` into a four-field record (`version`, `traceId`, `parentId`, `traceFlags`). From that, three identifiers are extracted and stored in `LogContext.Identifiers`:
+   - `transactionId`: read from the custom `transaction-id` header; generated as a random UUID if absent. Represents the end-to-end business transaction (may span multiple independent HTTP calls, e.g. saga flows).
+   - `traceId`: sourced from `TraceContext.traceId()` when `traceparent` is present (32-char hex); falls back to the custom `trace-id` header, then to a random UUID. Aligns with OTel trace-id when Micrometer Tracing is active in the microservice.
+   - `spanId`: sourced from `TraceContext.parentId()` when `traceparent` is present (16-char hex); `null` when `traceparent` is absent. Represents the calling service's active span, enabling log-to-trace linkage in Jaeger/Tempo/Grafana. Note the name mapping: the record field is `parentId` (spec terminology); the log field is `spanId` (consumer-friendly name).
+   `TraceContext.version` and `TraceContext.traceFlags` are captured but not currently propagated to `LogContext` or `LogEntry`. `transactionId` and `traceId` are written to MDC and echoed as HTTP response headers. `span-id` is written to MDC only when non-null; it is not echoed as a response header.
 
 4. **Redaction** — `LogRedactService.redact(json)` parses the serialised `LogEntry` JSON with Jayway JsonPath. For each path in `logging.mask.fields` it calls `DocumentContext.set(path, tag)`, replacing the value with the configured tag string. For each path in `logging.hide.fields` it calls `DocumentContext.delete(path)`, removing the key entirely. Missing paths are caught and logged at `TRACE`, never thrown. Redaction runs on the complete JSON string (including headers, URI, etc.), not just the payload field.
 
@@ -228,6 +233,10 @@ JSONPath expressions are evaluated against the full serialised `LogEntry` JSON, 
 - **Java 23 required.** The library compiles with `--release 23`. Consumers must run on JDK ≥ 23.
 
 - **`@Named("getRequestHttpHeaders")` method misname in `LoggingMapper`.** The method annotated `@Named("getRequestHttpHeaders")` is declared as `default Map<String, List<String>> getResponseHttpHeaders(ContentCachingRequestWrapper req)`. The method name says "Response" but handles request headers. This is a naming inconsistency; the behaviour is correct.
+
+- **`traceId` format changes when `traceparent` is present.** Without `traceparent`, `traceId` is a UUID string (e.g., `f0653cd1-8659-4c85-8a22-b2ce0333863e`). With `traceparent`, it is a 32-char lowercase hex string (e.g., `4bf92f3577b34da6a3ce929d0e0e4736`). JSONPath redaction rules targeting `$.traceId` still work in both cases; only the value format differs. Dashboards or alerting rules that pattern-match on `traceId` values must account for both formats.
+
+- **`spanId` is null when `traceparent` is absent.** If the inbound request carries no `traceparent` header (non-OTel callers, direct Postman calls, etc.), `spanId` is `null` and is omitted from the log JSON (the `ObjectMapper` is configured with `NON_NULL`). Log appender patterns referencing `%X{span-id}` will produce an empty string in that case and must be treated as optional.
 
 ---
 
